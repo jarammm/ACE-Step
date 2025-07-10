@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "trainer.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/trainer.py",
+            "console": "integratedTerminal",
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "1"
+            },
+            "args": []
+        }
+    ]
+}
