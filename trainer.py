@@ -781,7 +781,7 @@ class Pipeline(LightningModule):
         return lyrics
 
     def plot_step(self, batch, batch_idx):
-        global_step = self.global_step
+        global_step = self.global_step + 1
         if (
             global_step % self.hparams.every_plot_step != 0
             or self.local_rank != 0
@@ -838,7 +838,7 @@ def main(args):
     checkpoint_callback = ModelCheckpoint(
         monitor=None,
         every_n_train_steps=args.every_n_train_steps,
-        save_top_k=-1,
+        save_top_k=3,
     )
     # add datetime str to version
     logger_callback = TensorBoardLogger(
@@ -876,10 +876,10 @@ if __name__ == "__main__":
     args.add_argument("--learning_rate", type=float, default=1e-4)
     args.add_argument("--num_workers", type=int, default=8)
     args.add_argument("--epochs", type=int, default=-1)
-    args.add_argument("--max_steps", type=int, default=1000)
-    args.add_argument("--every_n_train_steps", type=int, default=1000)
+    args.add_argument("--max_steps", type=int, default=2000)
+    args.add_argument("--every_n_train_steps", type=int, default=500)
     args.add_argument("--dataset_path", type=str, default="./zh_lora_dataset")
-    args.add_argument("--exp_name", type=str, default="pansori_long_lora")
+    args.add_argument("--exp_name", type=str, default="pansori_lora")
     args.add_argument("--precision", type=str, default="32")
     args.add_argument("--accumulate_grad_batches", type=int, default=1)
     args.add_argument("--devices", type=int, default=1)
@@ -890,7 +890,7 @@ if __name__ == "__main__":
     args.add_argument("--gradient_clip_algorithm", type=str, default="norm")
     args.add_argument("--reload_dataloaders_every_n_epochs", type=int, default=1)
     args.add_argument("--every_plot_step", type=int, default=500)
-    args.add_argument("--val_check_interval", type=int, default=None)
+    args.add_argument("--val_check_interval", type=int, default=500)
     args.add_argument("--lora_config_path", type=str, default="config/zh_rap_lora_config.json")
     args = args.parse_args()
     main(args)
