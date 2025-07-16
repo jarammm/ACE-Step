@@ -675,7 +675,7 @@ class Text2MusicDataset(Dataset):
 
 if __name__ == "__main__":
     MAX_LYRIC_LEN  = 4096
-    MAX_WAV_LEN    = 24 * 10 * 48_000
+    MAX_WAV_LEN    = 24 * 10 * 48000
 
     LYRIC_LOG_PATH = Path("over_lyric_len.txt")
     WAV_LOG_PATH   = Path("over_wav_len.txt")
@@ -688,7 +688,8 @@ if __name__ == "__main__":
         lyric_over_cnt = 0
         wav_over_cnt   = 0
         
-        for sample in dataset:
+        for idx in (len(dataset)):
+            sample = dataset[idx]
             key          = sample["keys"][0]
             lyric_len    = len(sample["lyric_token_ids"][0])
             wav_len      = sample["wav_lengths"][0]
