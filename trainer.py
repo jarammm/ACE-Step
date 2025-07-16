@@ -512,7 +512,6 @@ class Pipeline(LightningModule):
         return timesteps
 
     def run_step(self, batch, batch_idx):
-        # self.plot_step(batch, batch_idx)
         (
             keys,
             target_latents,
@@ -607,6 +606,7 @@ class Pipeline(LightningModule):
         return total_loss, denoising_loss, proj_losses, learning_rate
     
     def training_step(self, batch, batch_idx):
+        self.plot_step(batch, batch_idx)
         total_loss, denoising_loss, proj_losses, lr = self.run_step(batch, batch_idx)
         
         self.log("train/denoising_loss", denoising_loss, on_step=True, on_epoch=False, prog_bar=True)
@@ -628,9 +628,6 @@ class Pipeline(LightningModule):
         self.log("val/loss", total_loss, on_step=False, on_epoch=True, prog_bar=True)
 
         return total_loss
-    
-    def test_step(self, batch, batch_idx):
-        self.plot_step(batch, batch_idx)
 
     def on_save_checkpoint(self, checkpoint):
         state = {}
@@ -805,7 +802,7 @@ class Pipeline(LightningModule):
         return lyrics
 
     def plot_step(self, batch, batch_idx):
-        global_step = self.global_step + 1
+        global_step = self.global_step
         if (
             global_step % self.hparams.every_plot_step != 0
             or self.local_rank != 0
@@ -813,6 +810,15 @@ class Pipeline(LightningModule):
             or torch.cuda.current_device() != 0
         ):
             return
+        
+        test_loader = self.trainer.test_dataloaders
+        if isinstance(test_loader, list):
+            test_loader = test_loader[0]
+        try:
+            batch = next(iter(test_loader))
+        except StopIteration:
+            return
+        
         results = self.predict_step(batch)
 
         target_wavs = results["target_wavs"]
@@ -894,10 +900,6 @@ def main(args):
     trainer.fit(
         model,
         ckpt_path=args.ckpt_path,
-    )
-    trainer.test(
-        model,
-        ckpt_path=None
     )
 
 
