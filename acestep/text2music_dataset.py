@@ -1,3 +1,4 @@
+import os
 import torch
 import numpy as np
 import random
@@ -15,7 +16,7 @@ import warnings
 
 warnings.simplefilter("ignore", category=FutureWarning)
 
-DEFAULT_TRAIN_PATH = "zh_lora_dataset/"
+DEFAULT_TRAIN_PATH = "lora_dataset/"
 
 
 def is_silent_audio(audio_tensor, silence_threshold=0.95):
@@ -71,6 +72,7 @@ class Text2MusicDataset(Dataset):
     def __init__(
         self,
         train=True,
+        split=None,
         train_dataset_path=DEFAULT_TRAIN_PATH,
         max_duration=240.0,
         sample_size=None,
@@ -88,7 +90,7 @@ class Text2MusicDataset(Dataset):
             shuffle: Whether to shuffle the dataset
             minibatch_size: Size of mini-batches
         """
-        self.train_dataset_path = train_dataset_path
+        self.dataset_path = os.path.join(train_dataset_path, split) if split else train_dataset_path
         self.max_duration = max_duration
         self.minibatch_size = minibatch_size
         self.train = train
