@@ -64,6 +64,9 @@ def create_dataset(data_dir="./data", repeat_count=2000, output_name="zh_lora_da
 
     # repeat specified times
     ds = Dataset.from_list(all_examples * repeat_count)
+    assert len(ds) == len(all_examples) * repeat_count
+    print("unique data count:", len(all_examples))
+    print("total dataset length:", len(ds))
     ds.save_to_disk(output_name)
 
 import argparse
