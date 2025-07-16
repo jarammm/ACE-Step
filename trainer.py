@@ -448,10 +448,7 @@ class Pipeline(LightningModule):
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
 
     def train_dataloader(self):
-        self.train_dataset = Text2MusicDataset(
-            train=True,
-            train_dataset_path=self.hparams.dataset_path,
-        )
+        self.train_dataset = Text2MusicDataset(split="train", train_dataset_path=self.hparams.dataset_path)
         return DataLoader(
             self.train_dataset,
             shuffle=True,
@@ -460,6 +457,29 @@ class Pipeline(LightningModule):
             pin_memory=True,
             collate_fn=self.train_dataset.collate_fn,
         )
+    
+    def val_dataloader(self):
+        self.val_dataset = Text2MusicDataset(split="val", dataset_path=self.hparams.dataset_path)
+        return DataLoader(
+            self.val_dataset,
+            shuffle=False,
+            batch_size=2,
+            num_workers=self.hparams.num_workers,
+            pin_memory=True,
+            collate_fn=self.val_dataset.collate_fn,
+        )
+
+    def test_dataloader(self):
+        self.test_dataset = Text2MusicDataset(split="test", dataset_path=self.hparams.dataset_path)
+        return DataLoader(
+            self.test_dataset,
+            shuffle=False,
+            batch_size=2,
+            num_workers=self.hparams.num_workers,
+            pin_memory=True,
+            collate_fn=self.test_dataset.collate_fn,
+        )
+
 
     def get_sd3_sigmas(self, timesteps, device, n_dim=4, dtype=torch.float32): # stable-diffusion3 style-model에서 given timestep에 해당하는 노이즈 강도 sigma 추출
         sigmas = self.scheduler.sigmas.to(device=device, dtype=dtype)
@@ -492,7 +512,7 @@ class Pipeline(LightningModule):
         return timesteps
 
     def run_step(self, batch, batch_idx):
-        self.plot_step(batch, batch_idx)
+        # self.plot_step(batch, batch_idx)
         (
             keys,
             target_latents,
@@ -563,50 +583,54 @@ class Pipeline(LightningModule):
         selected_model_pred = (model_pred * mask).reshape(bsz, -1).contiguous() # [bs, 8 * 16 * seq_len of dcae]
         selected_target = (target * mask).reshape(bsz, -1).contiguous() # [bs, 8 * 16 * seq_len of dcae]
 
-        loss = F.mse_loss(selected_model_pred, selected_target, reduction="none")
-        loss = loss.mean(1)
-        loss = loss * mask.reshape(bsz, -1).mean(1)
-        loss = loss.mean()
-
-        prefix = "train"
-
-        self.log(
-            f"{prefix}/denoising_loss",
-            loss,
-            on_step=True,
-            on_epoch=False,
-            prog_bar=True,
-        )
+        denoising_loss = F.mse_loss(selected_model_pred, selected_target, reduction="none")
+        denoising_loss = denoising_loss.mean(1)
+        denoising_loss = denoising_loss * mask.reshape(bsz, -1).mean(1)
+        denoising_loss = denoising_loss.mean()
 
         total_proj_loss = 0.0
         for k, v in proj_losses:
-            self.log(
-                f"{prefix}/{k}_loss", v, on_step=True, on_epoch=False, prog_bar=True
-            )
             total_proj_loss += v
 
         if len(proj_losses) > 0:
             total_proj_loss = total_proj_loss / len(proj_losses)
 
-        loss = loss + total_proj_loss * self.ssl_coeff
-        self.log(f"{prefix}/loss", loss, on_step=True, on_epoch=False, prog_bar=True)
+        total_loss = denoising_loss + total_proj_loss * self.ssl_coeff
 
         # Log learning rate if scheduler exists
         if self.lr_schedulers() is not None:
             learning_rate = self.lr_schedulers().get_last_lr()[0]
-            self.log(
-                f"{prefix}/learning_rate",
-                learning_rate,
-                on_step=True,
-                on_epoch=False,
-                prog_bar=True,
-            )
+        else:
+            learning_rate = None
         # with torch.autograd.detect_anomaly():
         #     self.manual_backward(loss)
-        return loss
-
+        return total_loss, denoising_loss, proj_losses, learning_rate
+    
     def training_step(self, batch, batch_idx):
-        return self.run_step(batch, batch_idx)
+        total_loss, denoising_loss, proj_losses, lr = self.run_step(batch, batch_idx)
+        
+        self.log("train/denoising_loss", denoising_loss, on_step=True, on_epoch=False, prog_bar=True)
+        for name, value in proj_losses:
+            self.log(f"train/{name}_loss", value, on_step=True, on_epoch=False, prog_bar=True)
+        self.log("train/loss", total_loss, on_step=True, on_epoch=False, prog_bar=True)
+        if lr is not None:
+            self.log("train/learning_rate", lr, on_step=True, on_epoch=False, prog_bar=True)
+
+        return total_loss
+
+    
+    def validation_step(self, batch, batch_idx):
+        total_loss, denoising_loss, proj_losses, _ = self.run_step(batch, batch_idx)
+
+        self.log("val/denoising_loss", denoising_loss, on_step=False, on_epoch=True, prog_bar=True)
+        for name, value in proj_losses:
+            self.log(f"val/{name}_loss", value, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val/loss", total_loss, on_step=False, on_epoch=True, prog_bar=True)
+
+        return total_loss
+    
+    def test_step(self, batch, batch_idx):
+        self.plot_step(batch, batch_idx)
 
     def on_save_checkpoint(self, checkpoint):
         state = {}
@@ -836,9 +860,13 @@ def main(args):
         lora_config_path=args.lora_config_path
     )
     checkpoint_callback = ModelCheckpoint(
-        monitor=None,
-        every_n_train_steps=args.every_n_train_steps,
+        monitor="val/loss",
+        mode="min",
         save_top_k=3,
+        save_last=True,
+        every_n_train_steps=None,
+        save_on_train_epoch_end=False,
+        filename="{step}-{val/loss:.4f}",
     )
     # add datetime str to version
     logger_callback = TensorBoardLogger(
@@ -867,6 +895,10 @@ def main(args):
         model,
         ckpt_path=args.ckpt_path,
     )
+    trainer.test(
+        model,
+        ckpt_path=None
+    )
 
 
 if __name__ == "__main__":
@@ -876,9 +908,9 @@ if __name__ == "__main__":
     args.add_argument("--learning_rate", type=float, default=1e-4)
     args.add_argument("--num_workers", type=int, default=8)
     args.add_argument("--epochs", type=int, default=-1)
-    args.add_argument("--max_steps", type=int, default=2000)
+    args.add_argument("--max_steps", type=int, default=4000)
     args.add_argument("--every_n_train_steps", type=int, default=500)
-    args.add_argument("--dataset_path", type=str, default="./zh_lora_dataset")
+    args.add_argument("--dataset_path", type=str, default="./lora_dataset")
     args.add_argument("--exp_name", type=str, default="pansori_lora")
     args.add_argument("--precision", type=str, default="32")
     args.add_argument("--accumulate_grad_batches", type=int, default=1)
@@ -889,7 +921,7 @@ if __name__ == "__main__":
     args.add_argument("--gradient_clip_val", type=float, default=0.5)
     args.add_argument("--gradient_clip_algorithm", type=str, default="norm")
     args.add_argument("--reload_dataloaders_every_n_epochs", type=int, default=1)
-    args.add_argument("--every_plot_step", type=int, default=500)
+    args.add_argument("--every_plot_step", type=int, default=1000)
     args.add_argument("--val_check_interval", type=int, default=500)
     args.add_argument("--lora_config_path", type=str, default="config/zh_rap_lora_config.json")
     args = args.parse_args()
