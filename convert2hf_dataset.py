@@ -33,6 +33,34 @@ def create_dataset(data_dir="./data", repeat_count=2000, output_name="zh_lora_da
             all_examples.append(example)
         except AssertionError as e:
             continue
+    
+    for song_path in data_path.glob("*.flac"):
+        prompt_path = str(song_path).replace(".flac", "_prompt.txt")
+        prompt_path = unicodedata.normalize("NFC", prompt_path)
+        lyric_path = str(song_path).replace(".flac", "_lyrics.txt")
+        lyric_path = unicodedata.normalize("NFC", lyric_path)
+        try:
+            assert os.path.exists(prompt_path), f"Prompt file {prompt_path} does not exist."
+            assert os.path.exists(lyric_path), f"Lyrics file {lyric_path} does not exist."
+            with open(prompt_path, "r", encoding="utf-8") as f:
+                prompt = f.read().strip()
+            
+            with open(lyric_path, "r", encoding="utf-8") as f:
+                lyrics = f.read().strip()
+            
+            keys = song_path.stem
+            example = {
+                "keys": keys,
+                "filename": str(song_path),
+                "tags": prompt.split(", "),
+                "speaker_emb_path": "",
+                "norm_lyrics": lyrics,
+                "recaption": {}
+            }
+            all_examples.append(example)
+        
+        except AssertionError as e:
+            continue
 
     # repeat specified times
     ds = Dataset.from_list(all_examples * repeat_count)
