@@ -203,4 +203,4 @@ pipeline_ace_step_demo.py
 start.sh
 exps/*
 data/
-zh_lora_dataset/
+lora_dataset/
