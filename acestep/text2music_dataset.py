@@ -73,7 +73,7 @@ class Text2MusicDataset(Dataset):
         self,
         train=True,
         split=None,
-        train_dataset_path=DEFAULT_TRAIN_PATH,
+        dataset_path=DEFAULT_TRAIN_PATH,
         max_duration=240.0,
         sample_size=None,
         shuffle=True,
@@ -84,13 +84,13 @@ class Text2MusicDataset(Dataset):
 
         Args:
             train: Whether this is a training dataset
-            train_dataset_path: Path to the dataset
+            dataset_path: Path to the dataset
             max_duration: Maximum audio duration in seconds
             sample_size: Optional limit on number of samples to use
             shuffle: Whether to shuffle the dataset
             minibatch_size: Size of mini-batches
         """
-        self.dataset_path = os.path.join(train_dataset_path, split) if split else train_dataset_path
+        self.dataset_path = os.path.join(dataset_path, split) if split else dataset_path
         self.max_duration = max_duration
         self.minibatch_size = minibatch_size
         self.train = train
@@ -215,7 +215,7 @@ class Text2MusicDataset(Dataset):
             shuffle: Whether to shuffle the dataset
             sample_size: Optional limit on number of samples to use
         """
-        pretrain_ds = load_from_disk(self.train_dataset_path)
+        pretrain_ds = load_from_disk(self.dataset_path)
 
         if sample_size is not None:
             pretrain_ds = pretrain_ds.select(range(sample_size))
@@ -304,7 +304,8 @@ class Text2MusicDataset(Dataset):
                 try:
                     # Handle structure markers like [Verse], [Chorus]
                     if structure_pattern.match(line):
-                        token_idx = self.lyric_tokenizer.encode(line, "en")
+                        # token_idx = self.lyric_tokenizer.encode(line, "en")
+                        token_idx = self.lyric_tokenizer.encode(line, "ko")
                     else:
                         # Try tokenizing with most common language first
                         token_idx = self.lyric_tokenizer.encode(line, most_common_lang)
