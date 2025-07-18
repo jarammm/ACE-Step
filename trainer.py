@@ -55,6 +55,7 @@ class Pipeline(LightningModule):
         dataset_path: str = "./data/your_dataset_path",
         lora_config_path: str = None,
         adapter_name: str = "lora_adapter",
+        vocab_config: bool = False
     ):
         super().__init__()
 
@@ -67,7 +68,7 @@ class Pipeline(LightningModule):
 
         # step 1: load model
         acestep_pipeline = ACEStepPipeline(checkpoint_dir)
-        acestep_pipeline.load_checkpoint(acestep_pipeline.checkpoint_dir)
+        acestep_pipeline.load_checkpoint(acestep_pipeline.checkpoint_dir, vocab_config=vocab_config)
 
         transformers = acestep_pipeline.ace_step_transformer.float().cpu()
         transformers.enable_gradient_checkpointing()
@@ -866,7 +867,8 @@ def main(args):
         dataset_path=args.dataset_path,
         checkpoint_dir=args.checkpoint_dir,
         adapter_name=args.exp_name,
-        lora_config_path=args.lora_config_path
+        lora_config_path=args.lora_config_path,
+        vocab_config=args.vocab_config
     )
     checkpoint_callback = ModelCheckpoint(
         monitor="val/loss",
@@ -925,11 +927,11 @@ if __name__ == "__main__":
     args.add_argument("--max_steps", type=int, default=4000)
     args.add_argument("--every_n_train_steps", type=int, default=500)
     args.add_argument("--dataset_path", type=str, default="./lora_dataset")
-    args.add_argument("--exp_name", type=str, default="pansori_lora_sp_token")
+    args.add_argument("--exp_name", type=str, default="pansori_lora")
     args.add_argument("--precision", type=str, default="32")
     args.add_argument("--accumulate_grad_batches", type=int, default=1)
     args.add_argument("--devices", type=int, default=1)
-    args.add_argument("--logger_dir", type=str, default="./exps/sp_token/")
+    args.add_argument("--logger_dir", type=str, default="./exps/default/")
     args.add_argument("--ckpt_path", type=str, default=None)
     args.add_argument("--checkpoint_dir", type=str, default=None)
     args.add_argument("--gradient_clip_val", type=float, default=0.5)
@@ -939,6 +941,7 @@ if __name__ == "__main__":
     args.add_argument("--val_check_interval", type=int, default=500)
     args.add_argument("--lora_config_path", type=str, default="config/zh_rap_lora_config.json")
     args.add_argument('--wandb_project', type=str, default="pansori-gen")
-    args.add_argument('--wandb_name', type=str, default="sp_token")
+    args.add_argument('--wandb_name', type=str, default="default")
+    args.add_argument('--vocab_config', type=bool, default=False)
     args = args.parse_args()
     main(args)

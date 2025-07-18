@@ -17,7 +17,6 @@ from tqdm import tqdm
 import json
 import math
 from huggingface_hub import snapshot_download
-from acestep.utils import resize_and_initialize_embedding
 # from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 from acestep.schedulers.scheduling_flow_match_euler_discrete import (
     FlowMatchEulerDiscreteScheduler,
@@ -49,6 +48,8 @@ from acestep.apg_guidance import (
 import torchaudio
 from .cpu_offload import cpu_offload
 
+from acestep.utils import resize_and_initialize_embedding
+from vocab_setting import *
 
 torch.backends.cudnn.benchmark = False
 torch.set_float32_matmul_precision("high")
@@ -179,7 +180,7 @@ class ACEStepPipeline:
                 checkpoint_dir_models = snapshot_download(repo, cache_dir=checkpoint_dir)
         return checkpoint_dir_models
 
-    def load_checkpoint(self, checkpoint_dir=None, export_quantized_weights=False):
+    def load_checkpoint(self, checkpoint_dir=None, export_quantized_weights=False, vocab_config=False):
         checkpoint_dir = self.get_checkpoint_path(checkpoint_dir, REPO_ID)
         dcae_checkpoint_path = os.path.join(checkpoint_dir, "music_dcae_f8c8")
         vocoder_checkpoint_path = os.path.join(checkpoint_dir, "music_vocoder")
@@ -216,11 +217,16 @@ class ACEStepPipeline:
         lang_segment = LangSegment()
         lang_segment.setfilters(language_filters.default)
         self.lang_segment = lang_segment
-        # self.lyric_tokenizer = VoiceBpeTokenizer()
-        self.lyric_tokenizer = VoiceBpeTokenizer(
-                            new_vocab_name = 'pansori_vocab',
-                            special_tokens=['[자진모리]', '[엇모리]', '[휘모리]', '[무장단]', '[아니리]', '[중중모리]', '[중모리]', '[진양조]', '[휘몰이]', '[창조]', '[자진중중모리]', '[자진몰이]', '[엇중모리]'])
-        resize_and_initialize_embedding(self.ace_step_transformer, self.lyric_tokenizer, "lyric_embs", "[verse]")
+        if vocab_config is True:
+            self.lyric_tokenizer = VoiceBpeTokenizer(
+                            new_vocab_name=VOCAB_NAME,
+                            special_tokens=SPECIAL_TOKENS)
+            resize_and_initialize_embedding(self.ace_step_transformer,
+                                            self.lyric_tokenizer,
+                                            TARGET_EMBED_NAME,
+                                            TARGET_INIT_VOCAB)
+        else:
+            self.lyric_tokenizer = VoiceBpeTokenizer()
 
         text_encoder_model = UMT5EncoderModel.from_pretrained(
             text_encoder_checkpoint_path, torch_dtype=self.dtype
