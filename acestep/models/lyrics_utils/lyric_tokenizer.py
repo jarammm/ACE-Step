@@ -623,10 +623,24 @@ DEFAULT_VOCAB_FILE = os.path.join(
 
 
 class VoiceBpeTokenizer:
-    def __init__(self, vocab_file=DEFAULT_VOCAB_FILE):
+    def __init__(self, vocab_file=DEFAULT_VOCAB_FILE,
+                 new_vocab_name=None,
+                 special_tokens: Union[list[str], None] = None,
+                 new_tokens: Union[list[str], None] = None):
         self.tokenizer = None
         if vocab_file is not None:
             self.tokenizer = Tokenizer.from_file(vocab_file)
+        
+        if new_vocab_name:
+            assert (special_tokens is not None) or (new_tokens is not None), "You shoud input special tokens for new tokens to add!"
+            if special_tokens:
+                self.tokenizer.add_special_tokens(special_tokens)
+            if new_tokens:
+                self.tokenizer.add_tokens(new_tokens)
+            
+            json_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"{new_vocab_name}.json")
+            self.tokenizer.save(json_path)
+        
         self.char_limits = {
             "en": 10000,
             "de": 253,

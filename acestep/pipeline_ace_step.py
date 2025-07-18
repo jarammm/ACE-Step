@@ -10,14 +10,14 @@ import random
 import time
 import os
 import re
-
+import torch.nn as nn
 import torch
 from loguru import logger
 from tqdm import tqdm
 import json
 import math
 from huggingface_hub import snapshot_download
-
+from acestep.utils import resize_and_initialize_embedding
 # from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 from acestep.schedulers.scheduling_flow_match_euler_discrete import (
     FlowMatchEulerDiscreteScheduler,
@@ -216,7 +216,11 @@ class ACEStepPipeline:
         lang_segment = LangSegment()
         lang_segment.setfilters(language_filters.default)
         self.lang_segment = lang_segment
-        self.lyric_tokenizer = VoiceBpeTokenizer()
+        # self.lyric_tokenizer = VoiceBpeTokenizer()
+        self.lyric_tokenizer = VoiceBpeTokenizer(
+                            new_vocab_name = 'pansori_vocab',
+                            special_tokens=['[자진모리]', '[엇모리]', '[휘모리]', '[무장단]', '[아니리]', '[중중모리]', '[중모리]', '[진양조]', '[휘몰이]', '[창조]', '[자진중중모리]', '[자진몰이]', '[엇중모리]'])
+        resize_and_initialize_embedding(self.ace_step_transformer, self.lyric_tokenizer, "lyric_embs", "[verse]")
 
         text_encoder_model = UMT5EncoderModel.from_pretrained(
             text_encoder_checkpoint_path, torch_dtype=self.dtype
