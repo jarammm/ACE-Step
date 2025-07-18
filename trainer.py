@@ -1,5 +1,7 @@
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import WandbLogger
+import wandb
 from pytorch_lightning import Trainer
 from datetime import datetime
 import argparse
@@ -27,7 +29,7 @@ import random
 import os
 from acestep.pipeline_ace_step import ACEStepPipeline
 
-
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 matplotlib.use("Agg")
 torch.backends.cudnn.benchmark = False
 torch.set_float32_matmul_precision("high")
@@ -448,7 +450,7 @@ class Pipeline(LightningModule):
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
 
     def train_dataloader(self):
-        self.train_dataset = Text2MusicDataset(split="train", train_dataset_path=self.hparams.dataset_path)
+        self.train_dataset = Text2MusicDataset(split="train", dataset_path=self.hparams.dataset_path)
         return DataLoader(
             self.train_dataset,
             shuffle=True,
@@ -631,7 +633,7 @@ class Pipeline(LightningModule):
 
     def on_save_checkpoint(self, checkpoint):
         state = {}
-        log_dir = self.logger.log_dir
+        log_dir = self.logger.save_dir
         epoch = self.current_epoch
         step = self.global_step
         checkpoint_name = f"epoch={epoch}-step={step}_lora"
@@ -811,11 +813,12 @@ class Pipeline(LightningModule):
         ):
             return
         
-        test_loader = self.trainer.test_dataloaders
+        test_loader = self.test_dataloader()
         if isinstance(test_loader, list):
             test_loader = test_loader[0]
         try:
             batch = next(iter(test_loader))
+            batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
         except StopIteration:
             return
         
@@ -836,8 +839,8 @@ class Pipeline(LightningModule):
             prompt = prompt
             lyric = self.construct_lyrics(candidate_lyric_chunk)
             key_prompt_lyric = f"# KEY\n\n{key}\n\n\n# PROMPT\n\n{prompt}\n\n\n# LYRIC\n\n{lyric}\n\n# SEED\n\n{seed}\n\n"
-            log_dir = self.logger.log_dir
-            save_dir = f"{log_dir}/eval_results/step_{self.global_step}"
+            log_dir = self.logger.save_dir
+            save_dir = f"{log_dir}/test_results/step_{self.global_step}"
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir, exist_ok=True)
             torchaudio.save(
@@ -868,7 +871,7 @@ def main(args):
     checkpoint_callback = ModelCheckpoint(
         monitor="val/loss",
         mode="min",
-        save_top_k=3,
+        save_top_k=1,
         save_last=True,
         every_n_train_steps=None,
         save_on_train_epoch_end=False,
@@ -879,6 +882,15 @@ def main(args):
         version=datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + args.exp_name,
         save_dir=args.logger_dir,
     )
+    
+    wandb_logger = WandbLogger(
+    project=args.wandb_project,
+    name=datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + args.exp_name,
+    save_dir=args.logger_dir,
+    log_model=True,
+    settings=wandb.Settings(start_method="fork")
+)
+
     trainer = Trainer(
         accelerator="gpu",
         devices=args.devices,
@@ -889,7 +901,7 @@ def main(args):
         max_epochs=args.epochs,
         max_steps=args.max_steps,
         log_every_n_steps=1,
-        logger=logger_callback,
+        logger=wandb_logger,
         callbacks=[checkpoint_callback],
         gradient_clip_val=args.gradient_clip_val,
         gradient_clip_algorithm=args.gradient_clip_algorithm,
@@ -913,11 +925,11 @@ if __name__ == "__main__":
     args.add_argument("--max_steps", type=int, default=4000)
     args.add_argument("--every_n_train_steps", type=int, default=500)
     args.add_argument("--dataset_path", type=str, default="./lora_dataset")
-    args.add_argument("--exp_name", type=str, default="pansori_lora")
+    args.add_argument("--exp_name", type=str, default="pansori_lora_sp_token")
     args.add_argument("--precision", type=str, default="32")
     args.add_argument("--accumulate_grad_batches", type=int, default=1)
     args.add_argument("--devices", type=int, default=1)
-    args.add_argument("--logger_dir", type=str, default="./exps/logs/")
+    args.add_argument("--logger_dir", type=str, default="./exps/sp_token/")
     args.add_argument("--ckpt_path", type=str, default=None)
     args.add_argument("--checkpoint_dir", type=str, default=None)
     args.add_argument("--gradient_clip_val", type=float, default=0.5)
@@ -926,5 +938,7 @@ if __name__ == "__main__":
     args.add_argument("--every_plot_step", type=int, default=1000)
     args.add_argument("--val_check_interval", type=int, default=500)
     args.add_argument("--lora_config_path", type=str, default="config/zh_rap_lora_config.json")
+    args.add_argument('--wandb_project', type=str, default="pansori-gen")
+    args.add_argument('--wandb_name', type=str, default="sp_token")
     args = args.parse_args()
     main(args)
