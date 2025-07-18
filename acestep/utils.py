@@ -17,6 +17,6 @@ def resize_and_initialize_embedding(model, tokenizer, embedding_attr_name: str, 
     new_embedding = nn.Embedding(new_num_tokens, emb_dim, device=old_embedding.weight.device)
     with torch.no_grad():
         new_embedding.weight[:old_num_tokens] = old_embedding.weight
-        new_embedding.weight[old_num_tokens:] = verse_emb.expand(13, -1).clone()
+        new_embedding.weight[old_num_tokens:] = verse_emb.expand((new_num_tokens - old_num_tokens), -1).clone()
 
     setattr(model, embedding_attr_name, new_embedding)
