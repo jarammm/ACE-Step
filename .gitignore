@@ -204,3 +204,5 @@ start.sh
 exps/*
 data/
 lora_dataset/
+examples/*
+.vscode/*
