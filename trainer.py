@@ -875,7 +875,7 @@ def main(args):
     checkpoint_callback = ModelCheckpoint(
         monitor="val/loss",
         mode="min",
-        save_top_k=1,
+        save_top_k=0,
         save_last=True,
         every_n_train_steps=None,
         save_on_train_epoch_end=False,
