@@ -304,8 +304,8 @@ class Text2MusicDataset(Dataset):
                 try:
                     # Handle structure markers like [Verse], [Chorus]
                     if structure_pattern.match(line):
-                        # token_idx = self.lyric_tokenizer.encode(line, "en")
-                        token_idx = self.lyric_tokenizer.jangdan_encode(line, "en")
+                        token_idx = self.lyric_tokenizer.encode(line, "ko")
+                        # token_idx = self.lyric_tokenizer.jangdan_encode(line, "en")
                     else:
                         # Try tokenizing with most common language first
                         token_idx = self.lyric_tokenizer.encode(line, most_common_lang)
