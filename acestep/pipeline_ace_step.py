@@ -48,8 +48,8 @@ from acestep.apg_guidance import (
 import torchaudio
 from .cpu_offload import cpu_offload
 
-from acestep.utils import resize_and_initialize_embedding
-from vocab_setting import *
+from acestep.resize_lyric_emb import resize_and_initialize_embedding
+from acestep.models.lyrics_utils.vocab_utils import *
 
 torch.backends.cudnn.benchmark = False
 torch.set_float32_matmul_precision("high")
@@ -180,7 +180,7 @@ class ACEStepPipeline:
                 checkpoint_dir_models = snapshot_download(repo, cache_dir=checkpoint_dir)
         return checkpoint_dir_models
 
-    def load_checkpoint(self, checkpoint_dir=None, export_quantized_weights=False, vocab_config=False):
+    def load_checkpoint(self, checkpoint_dir=None, vocab_name=DEFAULT_VOCAB_NAME, export_quantized_weights=False):
         checkpoint_dir = self.get_checkpoint_path(checkpoint_dir, REPO_ID)
         dcae_checkpoint_path = os.path.join(checkpoint_dir, "music_dcae_f8c8")
         vocoder_checkpoint_path = os.path.join(checkpoint_dir, "music_vocoder")
@@ -217,14 +217,14 @@ class ACEStepPipeline:
         lang_segment = LangSegment()
         lang_segment.setfilters(language_filters.default)
         self.lang_segment = lang_segment
-        if vocab_config is True:
-            self.lyric_tokenizer = VoiceBpeTokenizer(
-                            new_vocab_name=VOCAB_NAME,
-                            special_tokens=SPECIAL_TOKENS)
+        if vocab_name != DEFAULT_VOCAB_NAME:
+            vocab_config_path = get_vocab_yaml_path(vocab_name)
+            config = load_yaml(vocab_config_path)
+            self.lyric_tokenizer = VoiceBpeTokenizer(vocab_file=Path(vocab_config_path).stem)
             resize_and_initialize_embedding(self.ace_step_transformer,
                                             self.lyric_tokenizer,
-                                            TARGET_EMBED_NAME,
-                                            TARGET_INIT_VOCAB)
+                                            config["target_embed_name"],
+                                            config["target_init_vocab"])
         else:
             self.lyric_tokenizer = VoiceBpeTokenizer()
 
@@ -1441,6 +1441,7 @@ class ACEStepPipeline:
 
     def __call__(
         self,
+        vocab_name=DEFAULT_VOCAB_NAME,
         format: str = "wav",
         audio_duration: float = 60.0,
         prompt: str = None,
@@ -1491,7 +1492,8 @@ class ACEStepPipeline:
             if self.quantized:
                 self.load_quantized_checkpoint(self.checkpoint_dir)
             else:
-                self.load_checkpoint(self.checkpoint_dir)
+                self.load_checkpoint(checkpoint_dir=self.checkpoint_dir,
+                                     vocab_name=vocab_name)
 
         self.load_lora(lora_name_or_path, lora_weight)
         load_model_cost = time.time() - start_time

@@ -28,6 +28,7 @@ from tqdm import tqdm
 import random
 import os
 from acestep.pipeline_ace_step import ACEStepPipeline
+from acestep.models.lyrics_utils.vocab_utils import DEFAULT_VOCAB_NAME
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 matplotlib.use("Agg")
@@ -55,7 +56,7 @@ class Pipeline(LightningModule):
         dataset_path: str = "./data/your_dataset_path",
         lora_config_path: str = None,
         adapter_name: str = "lora_adapter",
-        vocab_config: bool = False
+        vocab_name: str = DEFAULT_VOCAB_NAME
     ):
         super().__init__()
 
@@ -68,7 +69,8 @@ class Pipeline(LightningModule):
 
         # step 1: load model
         acestep_pipeline = ACEStepPipeline(checkpoint_dir)
-        acestep_pipeline.load_checkpoint(acestep_pipeline.checkpoint_dir, vocab_config=vocab_config)
+        acestep_pipeline.load_checkpoint(checkpoint_dir=acestep_pipeline.checkpoint_dir,
+                                         vocab_name=vocab_name)
 
         transformers = acestep_pipeline.ace_step_transformer.float().cpu()
         transformers.enable_gradient_checkpointing()
@@ -868,7 +870,7 @@ def main(args):
         checkpoint_dir=args.checkpoint_dir,
         adapter_name=args.exp_name,
         lora_config_path=args.lora_config_path,
-        vocab_config=args.vocab_config
+        vocab_name=args.vocab_name
     )
     checkpoint_callback = ModelCheckpoint(
         monitor="val/loss",
@@ -942,6 +944,6 @@ if __name__ == "__main__":
     args.add_argument("--lora_config_path", type=str, default="config/zh_rap_lora_config.json")
     args.add_argument('--wandb_project', type=str, default="pansori-gen")
     args.add_argument('--wandb_name', type=str, default="default")
-    args.add_argument('--vocab_config', type=bool, default=False)
+    args.add_argument('--vocab_name', type=str, default=DEFAULT_VOCAB_NAME)
     args = args.parse_args()
     main(args)

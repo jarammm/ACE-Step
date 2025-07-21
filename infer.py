@@ -9,7 +9,7 @@ from acestep.data_sampler import DataSampler
     "--checkpoint_path", type=str, default="", help="Path to the checkpoint directory"
 )
 @click.option(
-    "--vocab_config_path", type=str, default="", help="Path to the vocab config directory"
+    "--vocab_name", type=str, default="", help="Vocab name"
 )
 @click.option("--bf16", type=bool, default=True, help="Whether to use bfloat16")
 @click.option(
@@ -23,7 +23,7 @@ from acestep.data_sampler import DataSampler
 )
 @click.option("--device_id", type=int, default=0, help="Device ID to use")
 @click.option("--output_path", type=str, default=None, help="Path to save the output")
-def main(checkpoint_path, vocab_config_path, bf16, torch_compile, cpu_offload, overlapped_decode, device_id, output_path):
+def main(checkpoint_path, vocab_name, bf16, torch_compile, cpu_offload, overlapped_decode, device_id, output_path):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(device_id)
 
     model_demo = ACEStepPipeline(
@@ -63,7 +63,7 @@ def main(checkpoint_path, vocab_config_path, bf16, torch_compile, cpu_offload, o
         ) = json_data
 
         model_demo(
-            vocab_config_path=vocab_config_path,
+            vocab_name=vocab_name,
             lora_name_or_path=lora_name_or_path,
             audio_duration=audio_duration,
             prompt=prompt,

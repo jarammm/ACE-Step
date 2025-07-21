@@ -18,6 +18,8 @@ from tokenizers import Tokenizer
 from .zh_num2words import TextNorm as zh_num2words
 from typing import Dict, List, Optional, Set, Union
 
+from acestep.models.lyrics_utils.vocab_utils import get_vocab_file_path
+from acestep.models.lyrics_utils.vocab_utils import DEFAULT_VOCAB_NAME
 
 # copy from https://github.com/coqui-ai/TTS/blob/dbf1a08a0d4e47fdad6172e433eeb34bc6b13b4e/TTS/tts/layers/xtts/tokenizer.py
 def get_spacy_lang(lang):
@@ -617,29 +619,12 @@ def korean_transliterate(text):
     return r.translit(text)
 
 
-DEFAULT_VOCAB_FILE = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), "vocab.json"
-)
-
-
 class VoiceBpeTokenizer:
-    def __init__(self, vocab_file=DEFAULT_VOCAB_FILE,
-                 new_vocab_name=None,
-                 special_tokens: Union[list[str], None] = None,
-                 new_tokens: Union[list[str], None] = None):
+    def __init__(self, vocab_file=DEFAULT_VOCAB_NAME):
         self.tokenizer = None
-        if vocab_file is not None:
-            self.tokenizer = Tokenizer.from_file(vocab_file)
-        
-        if new_vocab_name:
-            assert (special_tokens is not None) or (new_tokens is not None), "You shoud input special tokens for new tokens to add!"
-            if special_tokens:
-                self.tokenizer.add_special_tokens(special_tokens)
-            if new_tokens:
-                self.tokenizer.add_tokens(new_tokens)
-            
-            json_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"{new_vocab_name}.json")
-            self.tokenizer.save(json_path)
+        vocab_file = get_vocab_file_path(vocab_file)
+        assert os.path.exists(vocab_file), "This vocab json doesn't exist!"
+        self.tokenizer = Tokenizer.from_file(vocab_file)
         
         self.char_limits = {
             "en": 10000,
