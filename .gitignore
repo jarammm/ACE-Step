@@ -201,8 +201,9 @@ data_sampler_demo.py
 pipeline_ace_step_demo.py
 *.wav
 start.sh
-exps/*
+exps/
 data/
 lora_dataset/
-examples/*
-.vscode/*
+examples/
+.vscode/
+txt/
