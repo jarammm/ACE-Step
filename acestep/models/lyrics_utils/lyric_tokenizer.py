@@ -699,6 +699,10 @@ class VoiceBpeTokenizer:
         txt = f"[{lang}]{txt}"
         txt = txt.replace(" ", "[SPACE]")
         return self.tokenizer.encode(txt).ids
+    
+    def jangdan_encode(self, txt, lang):
+        txt = f"[{lang}]{txt}"
+        return self.tokenizer.encode(txt).ids
 
     def decode(self, seq, skip_special_tokens=False):
         if isinstance(seq, torch.Tensor):

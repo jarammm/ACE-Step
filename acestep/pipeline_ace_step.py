@@ -465,7 +465,7 @@ class ACEStepPipeline:
 
             try:
                 if structure_pattern.match(line):
-                    token_idx = self.lyric_tokenizer.encode(line, "en")
+                    token_idx = self.lyric_tokenizer.jangdan_encode(line, "en")
                 else:
                     token_idx = self.lyric_tokenizer.encode(line, lang)
                 if debug:
