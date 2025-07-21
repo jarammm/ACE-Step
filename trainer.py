@@ -876,7 +876,7 @@ def main(args):
         monitor="val/loss",
         mode="min",
         save_top_k=0,
-        save_last=True,
+        save_last=False,
         every_n_train_steps=None,
         save_on_train_epoch_end=False,
         filename="{step}-{val/loss:.4f}",
