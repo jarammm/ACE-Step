@@ -1,4 +1,4 @@
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import Callback
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.loggers import WandbLogger
 import wandb
@@ -87,7 +87,11 @@ class Pipeline(LightningModule):
             lora_config = LoraConfig(**lora_config)
             transformers.add_adapter(adapter_config=lora_config, adapter_name=adapter_name)
             self.adapter_name = adapter_name
-
+        
+        for name, param in transformers.named_parameters():
+            if name == "lyric_embs.weight":
+                param.requires_grad = True
+        
         self.transformers = transformers
 
         self.dcae = acestep_pipeline.music_dcae.float().cpu()
@@ -634,20 +638,6 @@ class Pipeline(LightningModule):
 
         return total_loss
 
-    def on_save_checkpoint(self, checkpoint):
-        state = {}
-        log_dir = self.logger.save_dir
-        epoch = self.current_epoch
-        step = self.global_step
-        checkpoint_name = f"epoch={epoch}-step={step}_lora"
-        checkpoint_dir = os.path.join(log_dir, "checkpoints", checkpoint_name)
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        self.transformers.save_lora_adapter(checkpoint_dir, adapter_name=self.adapter_name)
-        
-        lyric_checkpoint_dir = os.path.join(log_dir, "checkpoints", "lyric_embs.pt")
-        torch.save(self.transformers.lyric_embs.state_dict(), lyric_checkpoint_dir)
-        return state
-
     @torch.no_grad()
     def diffusion_process(
         self,
@@ -861,6 +851,21 @@ class Pipeline(LightningModule):
                 f.write(key_prompt_lyric)
             i += 1
 
+class SaveLoraPtCallback(Callback):
+    def __init__(self, adapter_name="default", every_n_steps=1000):
+        self.adapter_name = adapter_name
+        self.every_n_steps = every_n_steps
+
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        step = trainer.global_step
+        if step > 0 and step % self.every_n_steps == 0 and trainer.is_global_zero:
+            log_dir = trainer.logger.save_dir
+            checkpoint_dir = os.path.join(log_dir, "checkpoints", f"step={step}_lora")
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            pl_module.transformers.save_lora_adapter(checkpoint_dir, adapter_name=self.adapter_name)
+
+            lyric_checkpoint_dir = os.path.join(log_dir, "checkpoints", "lyric_embs.pt")
+            torch.save(pl_module.transformers.lyric_embs.state_dict(), lyric_checkpoint_dir)
 
 def main(args):
     model = Pipeline(
@@ -875,14 +880,10 @@ def main(args):
         lora_config_path=args.lora_config_path,
         vocab_name=args.vocab_name
     )
-    checkpoint_callback = ModelCheckpoint(
-        monitor="val/loss",
-        mode="min",
-        save_top_k=0,
-        save_last=True,
-        every_n_train_steps=None,
-        save_on_train_epoch_end=False,
-        filename="{step}-{val/loss:.4f}",
+
+    lora_callback = SaveLoraPtCallback(
+        adapter_name=args.exp_name,
+        every_n_steps=args.every_n_train_steps
     )
     # add datetime str to version
     logger_callback = TensorBoardLogger(
@@ -909,7 +910,7 @@ def main(args):
         max_steps=args.max_steps,
         log_every_n_steps=1,
         logger=wandb_logger,
-        callbacks=[checkpoint_callback],
+        callbacks=[lora_callback],
         gradient_clip_val=args.gradient_clip_val,
         gradient_clip_algorithm=args.gradient_clip_algorithm,
         reload_dataloaders_every_n_epochs=args.reload_dataloaders_every_n_epochs,
