@@ -895,7 +895,7 @@ def main(args):
     project=args.wandb_project,
     name=datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + args.exp_name,
     save_dir=args.logger_dir,
-    log_model=True,
+    log_model=False,
     settings=wandb.Settings(start_method="fork")
 )
 
@@ -933,11 +933,11 @@ if __name__ == "__main__":
     args.add_argument("--max_steps", type=int, default=4000)
     args.add_argument("--every_n_train_steps", type=int, default=500)
     args.add_argument("--dataset_path", type=str, default="./lora_dataset")
-    args.add_argument("--exp_name", type=str, default="speaker_emb")
+    args.add_argument("--exp_name", type=str, default="speaker_lyric_emb")
     args.add_argument("--precision", type=str, default="32")
     args.add_argument("--accumulate_grad_batches", type=int, default=1)
     args.add_argument("--devices", type=int, default=1)
-    args.add_argument("--logger_dir", type=str, default="./exps/speaker_emb/")
+    args.add_argument("--logger_dir", type=str, default="./exps/speaker_lyric_emb/")
     args.add_argument("--ckpt_path", type=str, default=None)
     args.add_argument("--checkpoint_dir", type=str, default=None)
     args.add_argument("--gradient_clip_val", type=float, default=0.5)
@@ -945,9 +945,9 @@ if __name__ == "__main__":
     args.add_argument("--reload_dataloaders_every_n_epochs", type=int, default=1)
     args.add_argument("--every_plot_step", type=int, default=1000)
     args.add_argument("--val_check_interval", type=int, default=500)
-    args.add_argument("--lora_config_path", type=str, default="config/lora_config_v1.json")
+    args.add_argument("--lora_config_path", type=str, default="config/lora_config_v2.json")
     args.add_argument('--wandb_project', type=str, default="pansori-gen")
-    args.add_argument('--wandb_name', type=str, default="speaker_emb")
-    args.add_argument('--vocab_name', type=str, default="vocab")
+    args.add_argument('--wandb_name', type=str, default="speaker_lyric_emb")
+    args.add_argument('--vocab_name', type=str, default="pansori_vocab")
     args = args.parse_args()
     main(args)
