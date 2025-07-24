@@ -888,7 +888,7 @@ def main(args):
     project=args.wandb_project,
     name=datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + args.exp_name,
     save_dir=args.logger_dir,
-    log_model=True,
+    log_model=False,
     settings=wandb.Settings(start_method="fork")
 )
 
@@ -924,7 +924,7 @@ if __name__ == "__main__":
     args.add_argument("--num_workers", type=int, default=8)
     args.add_argument("--epochs", type=int, default=-1)
     args.add_argument("--max_steps", type=int, default=4000)
-    args.add_argument("--every_n_train_steps", type=int, default=1000)
+    args.add_argument("--every_n_train_steps", type=int, default=500)
     args.add_argument("--dataset_path", type=str, default="./lora_dataset")
     args.add_argument("--exp_name", type=str, default="speaker_emb")
     args.add_argument("--precision", type=str, default="32")
@@ -937,7 +937,7 @@ if __name__ == "__main__":
     args.add_argument("--gradient_clip_algorithm", type=str, default="norm")
     args.add_argument("--reload_dataloaders_every_n_epochs", type=int, default=1)
     args.add_argument("--every_plot_step", type=int, default=1000)
-    args.add_argument("--val_check_interval", type=int, default=1000)
+    args.add_argument("--val_check_interval", type=int, default=500)
     args.add_argument("--lora_config_path", type=str, default="config/lora_config_v1.json")
     args.add_argument('--wandb_project', type=str, default="pansori-gen")
     args.add_argument('--wandb_name', type=str, default="speaker_emb")
